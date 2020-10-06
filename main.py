@@ -1,3 +1,26 @@
+#!/usr/bin/python3 -B
+
+# Copyright 2020 Josh Pieper, jjp@pobox.com.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+'''Demonstrates how to interact with the moteus controller using a
+fdcanusb transport and the multiplex register protocol.
+
+It commands a position sine wave while reporting the status of the
+device.
+'''
+
 import argparse
 import enum
 import io
@@ -136,11 +159,16 @@ def parse_register_reply(data):
     return result
 
 
-
-
 class Controller:
+    def __init__(self, controller_ID):
+        parser = argparse.ArgumentParser(description=__doc__)
 
-    def __init__(self, args):
+        parser.add_argument('-d', '--device', type=str, default='/dev/fdcanusb',
+                            help='serial device')
+        parser.add_argument('-t', '--target', type=int, default=controller_ID,
+                            help='ID of target device')
+        args = parser.parse_args()
+
         self.serial = serial.Serial(port=args.device)
         self.target = args.target
 
@@ -152,10 +180,7 @@ class Controller:
         # Read the "OK" response from the fdcanusb.
         readline(self.serial)
 
-    def send_can_frame(self, frame, reply):
-        self.serial.write("can send {:02x}{:02x} {}\n".format(
-            0x80 if reply else 0x00,
-            self.target, hexify(frame)).encode('latin1'))
+
 
     def construct_stop(self):
         buf = io.BytesIO()
@@ -166,7 +191,7 @@ class Controller:
             MoteusMode.STOPPED))
         return buf.getvalue()
 
-    def set_position(self, angle_deg, velocity_dps, reply):
+    def command_position(self, position, velocity, ff_torque):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
@@ -177,9 +202,9 @@ class Controller:
             "<bbfff",
             0x0f,  # write float32 3x
             MOTEUS_REG_POS_POSITION,
-            angle_deg / 360.0,  # position
-            velocity_dps / 360.0,  # velocity
-            0.0,  # feedforward torque
+            position,
+            velocity,
+            ff_torque,
             ))
         buf.write(struct.pack(
             "<bbb",
@@ -192,25 +217,34 @@ class Controller:
             0x13,  # read int8 3x
             MOTEUS_REG_V))
 
-        self.send_can_frame(buf.getvalue(), reply=True):
-        return buf.getvalue()
+        self.send_can_frame(buf.getvalue(), reply=True)
 
-    def step(self):
-        self.phase = time.time() % (2. * math.pi);
-        self.angle_deg = 20.0 * math.sin(self.phase)
-        self.velocity_dps = 20.0 * math.cos(self.phase)
 
-        raw_frame = self.construct_position()
-        self.send_can_frame(raw_frame, reply=True)
+    def send_can_frame(self, frame, reply):
+        self.serial.write("can send {:02x}{:02x} {}\n".format(
+            0x80 if reply else 0x00,
+            self.target, hexify(frame)).encode('latin1'))
+
+
+def main():
+
+    controller_1 = Controller(1)
+
+    while True:
+        controller_1.phase = time.time() % (2. * math.pi);
+        controller_1.angle_deg = 20.0 / 360 * math.sin(controller_1.phase)
+        controller_1.velocity_dps = 20.0 / 360 * math.cos(controller_1.phase)
+
+        controller_1.command_position(controller_1.angle_deg, controller_1.velocity_dps, 0)
 
         # Read (and discard) the adapters response.
-        ok_response = readline(self.serial)
+        ok_response = readline(controller_1.serial)
         if not ok_response.startswith(b"OK"):
             raise RuntimeError("fdcanusb responded with: " +
                                ok_response.decode('latin1'))
 
         # Read the devices response.
-        device = readline(self.serial)
+        device = readline(controller_1.serial)
 
         if not device.startswith(b"rcv"):
             raise RuntimeError("unexpected response")
@@ -221,31 +255,14 @@ class Controller:
 
         print("Mode: {: 2d}  Pos: {: 6.2f}deg  Vel: {: 6.2f}dps  "
               "Torque: {: 6.2f}Nm  Temp: {: 3d}C  Voltage: {: 3.1f}V    ".format(
-                  int(response_data[MOTEUS_REG_MODE]),
-                  response_data[MOTEUS_REG_POSITION] * 360.0,
-                  response_data[MOTEUS_REG_VELOCITY] * 360.0,
-                  response_data[MOTEUS_REG_TORQUE],
-                  response_data[MOTEUS_REG_TEMP_C],
-                  response_data[MOTEUS_REG_V] * 0.5),
-              end = '\r')
+            int(response_data[MOTEUS_REG_MODE]),
+            response_data[MOTEUS_REG_POSITION] * 360.0,
+            response_data[MOTEUS_REG_VELOCITY] * 360.0,
+            response_data[MOTEUS_REG_TORQUE],
+            response_data[MOTEUS_REG_TEMP_C],
+            response_data[MOTEUS_REG_V] * 0.5),
+            end='\r')
 
-
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-
-    parser.add_argument('-d', '--device', type=str, default='/dev/fdcanusb',
-                        help='serial device')
-    parser.add_argument('-t', '--target', type=int, default=1,
-                        help='ID of target device')
-    args = parser.parse_args()
-
-    spinner = Controller(args)
-
-    while True:
-        # Just run as fast as we can.
-        spinner.step()
 
 
 if __name__ == '__main__':
