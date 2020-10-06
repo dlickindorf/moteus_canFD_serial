@@ -1,26 +1,3 @@
-#!/usr/bin/python3 -B
-
-# Copyright 2020 Josh Pieper, jjp@pobox.com.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-'''Demonstrates how to interact with the moteus controller using a
-fdcanusb transport and the multiplex register protocol.
-
-It commands a position sine wave while reporting the status of the
-device.
-'''
-
 import argparse
 import enum
 import io
@@ -229,20 +206,21 @@ class Controller:
 def main():
 
     controller_1 = Controller(1)
-
+    i=time.time()
     while True:
-        controller_1.phase = time.time() % (2. * math.pi);
-        controller_1.angle_deg = 20.0 / 360 * math.sin(controller_1.phase)
-        controller_1.velocity_dps = 20.0 / 360 * math.cos(controller_1.phase)
+        # phase = time.time() % (2. * math.pi);
+        # angle_deg = 20.0 / 360 * math.sin(controller_1.phase)
+        # velocity_dps = 20.0 / 360 * math.cos(controller_1.phase)
+        #
+        # controller_1.command_position(angle_deg, velocity_dps, 0)
 
-        controller_1.command_position(controller_1.angle_deg, controller_1.velocity_dps, 0)
+        controller_1.command_position(time.time()-i,0,0)
 
         # Read (and discard) the adapters response.
         ok_response = readline(controller_1.serial)
         if not ok_response.startswith(b"OK"):
             raise RuntimeError("fdcanusb responded with: " +
                                ok_response.decode('latin1'))
-
         # Read the devices response.
         device = readline(controller_1.serial)
 
@@ -262,7 +240,6 @@ def main():
             response_data[MOTEUS_REG_TEMP_C],
             response_data[MOTEUS_REG_V] * 0.5),
             end='\r')
-
 
 
 if __name__ == '__main__':
