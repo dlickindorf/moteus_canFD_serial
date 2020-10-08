@@ -127,7 +127,7 @@ def parse_register_reply(data):
             reg = read_varuint(stream)
             err = read_varuint(stream)
             result[reg] = 'rerr {}'.format(err)
-        elif opcode_Base == MP_NOP:
+        elif opcode_base == MP_NOP:
             pass
         else:
             # Unknown opcode.  Just bail.
@@ -168,7 +168,7 @@ class Controller:
             MoteusMode.STOPPED))
         return buf.getvalue()
 
-    def command_position(self, position, velocity, ff_torque):
+    def command_position(self, position, max_torque, kp_scale=1, kd_scale=1, velocity = 0, ff_torque=0):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
@@ -176,12 +176,16 @@ class Controller:
             MOTEUS_REG_MODE,
             MoteusMode.POSITION))
         buf.write(struct.pack(
-            "<bbfff",
-            0x0f,  # write float32 3x
+            "<bbbffffff",
+            0x0f,
+            6,  # write float32 6x
             MOTEUS_REG_POS_POSITION,
             position,
             velocity,
             ff_torque,
+            kp_scale,
+            kd_scale,
+            max_torque,
             ))
         buf.write(struct.pack(
             "<bbb",
@@ -209,37 +213,39 @@ def main():
     i=time.time()
     while True:
         # phase = time.time() % (2. * math.pi);
-        # angle_deg = 20.0 / 360 * math.sin(controller_1.phase)
-        # velocity_dps = 20.0 / 360 * math.cos(controller_1.phase)
+        # angle_deg = 60.0 / 360 * math.sin(phase)
+        # velocity_dps = 60.0 / 360 * math.cos(phase)
         #
         # controller_1.command_position(angle_deg, velocity_dps, 0)
 
-        controller_1.command_position(time.time()-i,0,0)
 
-        # Read (and discard) the adapters response.
-        ok_response = readline(controller_1.serial)
-        if not ok_response.startswith(b"OK"):
-            raise RuntimeError("fdcanusb responded with: " +
-                               ok_response.decode('latin1'))
-        # Read the devices response.
-        device = readline(controller_1.serial)
 
-        if not device.startswith(b"rcv"):
-            raise RuntimeError("unexpected response")
+        controller_1.command_position(position = (time.time()-i), max_torque = 0.5)
 
-        fields = device.split(b" ")
-        response = dehexify(fields[2])
-        response_data = parse_register_reply(response)
+        # # Read (and discard) the adapters response.
+        # ok_response = readline(controller_1.serial)
+        # if not ok_response.startswith(b"OK"):
+        #     raise RuntimeError("fdcanusb responded with: " +
+        #                        ok_response.decode('latin1'))
+        # # Read the devices response.
+        # device = readline(controller_1.serial)
+        #
+        # if not device.startswith(b"rcv"):
+        #     raise RuntimeError("unexpected response")
+        #
+        # fields = device.split(b" ")
+        # response = dehexify(fields[2])
+        # response_data = parse_register_reply(response)
 
-        print("Mode: {: 2d}  Pos: {: 6.2f}deg  Vel: {: 6.2f}dps  "
-              "Torque: {: 6.2f}Nm  Temp: {: 3d}C  Voltage: {: 3.1f}V    ".format(
-            int(response_data[MOTEUS_REG_MODE]),
-            response_data[MOTEUS_REG_POSITION] * 360.0,
-            response_data[MOTEUS_REG_VELOCITY] * 360.0,
-            response_data[MOTEUS_REG_TORQUE],
-            response_data[MOTEUS_REG_TEMP_C],
-            response_data[MOTEUS_REG_V] * 0.5),
-            end='\r')
+        # print("Mode: {: 2d}  Pos: {: 6.2f}deg  Vel: {: 6.2f}dps  "
+        #       "Torque: {: 6.2f}Nm  Temp: {: 3d}C  Voltage: {: 3.1f}V    ".format(
+        #     int(response_data[MOTEUS_REG_MODE]),
+        #     response_data[MOTEUS_REG_POSITION] * 360.0,
+        #     response_data[MOTEUS_REG_VELOCITY] * 360.0,
+        #     response_data[MOTEUS_REG_TORQUE],
+        #     response_data[MOTEUS_REG_TEMP_C],
+        #     response_data[MOTEUS_REG_V] * 0.5),
+        #     end='\r')
 
 
 if __name__ == '__main__':
