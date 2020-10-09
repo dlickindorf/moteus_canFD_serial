@@ -42,6 +42,10 @@ MOTEUS_REG_FAULT = 0x00f
 MOTEUS_REG_POS_POSITION = 0x20
 MOTEUS_REG_POS_VELOCITY = 0x21
 MOTEUS_REG_POS_TORQUE = 0x22
+MOTEUS_REG_POS_KP = 0x23
+MOTEUS_REG_POS_KD = 0x24
+MOTEUS_REG_MAX_TORQUE = 0x25
+
 
 class MoteusMode(enum.IntEnum):
     STOPPED = 0
@@ -63,7 +67,7 @@ def hexify(data):
 def dehexify(data):
     result = b''
     for i in range(0, len(data), 2):
-        result += bytes([int(data[i:i+2], 16)])
+        result += bytes([int(data[i:i + 2], 16)])
     return result
 
 
@@ -152,23 +156,27 @@ class Controller:
         # Send a stop to begin with, in case we have a fault or
         # something.  The fault states are latching, and require a
         # stop command in order to make the device move again.
-        self.send_can_frame(self.construct_stop(), reply=False)
+        self.command_stop()
 
         # Read the "OK" response from the fdcanusb.
         readline(self.serial)
 
+    def send_can_frame(self, frame, reply):
+        self.serial.write("can send {:02x}{:02x} {}\n".format(
+            0x80 if reply else 0x00,
+            self.target, hexify(frame)).encode('latin1'))
 
-
-    def construct_stop(self):
+    def command_stop(self):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
             0x01,  # write int8 1x
             MOTEUS_REG_MODE,
             MoteusMode.STOPPED))
-        return buf.getvalue()
 
-    def command_position(self, position, max_torque, kp_scale=1, kd_scale=1, velocity = 0, ff_torque=0):
+        self.send_can_frame(buf.getvalue(), reply=False)
+
+    def command_position(self, position, max_torque=0.5, velocity=0., ff_torque=0., kp_scale=1., kd_scale=1.):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
@@ -176,53 +184,77 @@ class Controller:
             MOTEUS_REG_MODE,
             MoteusMode.POSITION))
         buf.write(struct.pack(
-            "<bbbffffff",
-            0x0f,
-            6,  # write float32 6x
+            "<bbbfff",
+            0x0c,
+            3,  # write float32 6x
             MOTEUS_REG_POS_POSITION,
             position,
             velocity,
             ff_torque,
+        ))
+        buf.write(struct.pack(
+            "<bbbff",
+            0x0c,
+            2,  # write float32 2
+            MOTEUS_REG_POS_KP,
             kp_scale,
-            kd_scale,
+            kd_scale
+        ))
+        buf.write(struct.pack(
+            "<bbbf",
+            0x0c,
+            1,  # write float32 6x
+            MOTEUS_REG_MAX_TORQUE,
             max_torque,
-            ))
+        ))
+        self.send_can_frame(buf.getvalue(), reply=False)
+
+    def command_velocity(self, velocity=0., max_torque=0.5, ff_torque=0., kp_scale=0., kd_scale=1.):
+        buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
-            0x1c,  # read float32 (variable number)
-            4,     # 4 registers
-            0x00   # starting at 0
-            ))
+            0x01,  # write int8 1x
+            MOTEUS_REG_MODE,
+            MoteusMode.POSITION))
         buf.write(struct.pack(
-            "<bb",
-            0x13,  # read int8 3x
-            MOTEUS_REG_V))
-
-        self.send_can_frame(buf.getvalue(), reply=True)
-
-
-    def send_can_frame(self, frame, reply):
-        self.serial.write("can send {:02x}{:02x} {}\n".format(
-            0x80 if reply else 0x00,
-            self.target, hexify(frame)).encode('latin1'))
+            "<bbbfff",
+            0x0c,
+            3,  # write float32 3x
+            MOTEUS_REG_POS_POSITION,
+            math.nan,
+            velocity,
+            ff_torque,
+        ))
+        buf.write(struct.pack(
+            "<bbbff",
+            0x0c,
+            2,  # write float32 2
+            MOTEUS_REG_POS_KP,
+            kp_scale,
+            kd_scale
+        ))
+        buf.write(struct.pack(
+            "<bbbf",
+            0x0c,
+            1,  # write float32 6x
+            MOTEUS_REG_MAX_TORQUE,
+            max_torque,
+        ))
+        self.send_can_frame(buf.getvalue(), reply=False)
 
 
 def main():
-
     controller_1 = Controller(1)
-    i=time.time()
     while True:
-        # phase = time.time() % (2. * math.pi);
-        # angle_deg = 60.0 / 360 * math.sin(phase)
-        # velocity_dps = 60.0 / 360 * math.cos(phase)
-        #
-        # controller_1.command_position(angle_deg, velocity_dps, 0)
+        phase = time.time() % (2. * math.pi);
+        angle_deg = 60.0 / 360 * math.sin(phase)
+        velocity_dps = 60.0 / 360 * math.cos(phase)
 
+        controller_1.command_position(position=angle_deg, velocity=velocity_dps, max_torque=0.5)
 
+        #controller_1.command_velocity(velocity=velocity_dps, max_torque=0.5)
 
-        controller_1.command_position(position = (time.time()-i), max_torque = 0.5)
-
-        # # Read (and discard) the adapters response.
+        # Read (and discard) the adapters response.
         # ok_response = readline(controller_1.serial)
         # if not ok_response.startswith(b"OK"):
         #     raise RuntimeError("fdcanusb responded with: " +
@@ -236,7 +268,6 @@ def main():
         # fields = device.split(b" ")
         # response = dehexify(fields[2])
         # response_data = parse_register_reply(response)
-
         # print("Mode: {: 2d}  Pos: {: 6.2f}deg  Vel: {: 6.2f}dps  "
         #       "Torque: {: 6.2f}Nm  Temp: {: 3d}C  Voltage: {: 3.1f}V    ".format(
         #     int(response_data[MOTEUS_REG_MODE]),
