@@ -209,7 +209,7 @@ class Controller:
         ))
         self.send_can_frame(buf.getvalue(), reply=False)
 
-    def command_velocity(self, velocity=0., max_torque=0.5, ff_torque=0., kp_scale=0., kd_scale=1.):
+    def command_velocity(self, velocity, max_torque=0.5, ff_torque=0., kp_scale=0., kd_scale=1.):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
