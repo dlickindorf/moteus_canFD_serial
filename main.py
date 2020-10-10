@@ -158,13 +158,41 @@ class Controller:
         # stop command in order to make the device move again.
         self.command_stop()
 
-        # Read the "OK" response from the fdcanusb.
-        readline(self.serial)
 
-    def send_can_frame(self, frame, reply):
+
+    def send_can_frame(self, frame, reply, discard_adapter_response=True, print_data=False):
         self.serial.write("can send {:02x}{:02x} {}\n".format(
             0x80 if reply else 0x00,
             self.target, hexify(frame)).encode('latin1'))
+
+        if(discard_adapter_response):
+            # Read (and discard) the adapters response.
+            ok_response = readline(self.serial)
+            if not ok_response.startswith(b"OK"):
+                raise RuntimeError("fdcanusb responded with: " +
+                                   ok_response.decode('latin1'))
+
+            if(reply):
+                # Read the devices response.
+                device = readline(self.serial)
+
+                # if not device.startswith(b"rcv"):
+                #     raise RuntimeError("unexpected response")
+
+                fields = device.split(b" ")
+                response = dehexify(fields[2])
+                response_data = parse_register_reply(response)
+
+                if(print_data):
+                    print("Mode: {: 2d}  Pos: {: 6.2f}deg  Vel: {: 6.2f}dps  "
+                          "Torque: {: 6.2f}Nm  Temp: {: 3d}C  Voltage: {: 3.1f}V    ".format(
+                            int(response_data[MOTEUS_REG_MODE]),
+                            response_data[MOTEUS_REG_POSITION] * 360.0,
+                            response_data[MOTEUS_REG_VELOCITY] * 360.0,
+                            response_data[MOTEUS_REG_TORQUE],
+                            response_data[MOTEUS_REG_TEMP_C],
+                            response_data[MOTEUS_REG_V] * 0.5))
+                return response_data
 
     def command_stop(self):
         buf = io.BytesIO()
@@ -176,7 +204,9 @@ class Controller:
 
         self.send_can_frame(buf.getvalue(), reply=False)
 
-    def command_position(self, position, max_torque=0.5, velocity=0., ff_torque=0., kp_scale=1., kd_scale=1.):
+
+    def command_position(self, position, velocity=0., max_torque=0.5, ff_torque=0., kp_scale=1., kd_scale=1.,
+                         get_data=False, print_data=False):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
@@ -184,32 +214,34 @@ class Controller:
             MOTEUS_REG_MODE,
             MoteusMode.POSITION))
         buf.write(struct.pack(
-            "<bbbfff",
+            "<bbbffffff",
             0x0c,
-            3,  # write float32 6x
+            6,  # write float32 6x
             MOTEUS_REG_POS_POSITION,
             position,
             velocity,
             ff_torque,
-        ))
-        buf.write(struct.pack(
-            "<bbbff",
-            0x0c,
-            2,  # write float32 2
-            MOTEUS_REG_POS_KP,
             kp_scale,
-            kd_scale
-        ))
-        buf.write(struct.pack(
-            "<bbbf",
-            0x0c,
-            1,  # write float32 6x
-            MOTEUS_REG_MAX_TORQUE,
+            kd_scale,
             max_torque,
         ))
-        self.send_can_frame(buf.getvalue(), reply=False)
+        if(get_data):
+            buf.write(struct.pack(
+                "<bbb",
+                0x1c,  # read float32 (variable number)
+                4,  # 4 registers
+                0x00  # starting at 0
+            ))
+            buf.write(struct.pack(
+                "<bb",
+                0x13,  # read int8 3x
+                MOTEUS_REG_V))
+            return self.send_can_frame(buf.getvalue(), reply=True, print_data=print_data)
+        else:
+            self.send_can_frame(buf.getvalue(), reply=False, print_data=print_data)
 
-    def command_velocity(self, velocity, max_torque=0.5, ff_torque=0., kp_scale=0., kd_scale=1.):
+
+    def command_velocity(self, velocity=0., max_torque=0.5, ff_torque=0., kd_scale=1., get_data=False, print_data=False):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
@@ -217,66 +249,102 @@ class Controller:
             MOTEUS_REG_MODE,
             MoteusMode.POSITION))
         buf.write(struct.pack(
-            "<bbbfff",
+            "<bbbffffff",
             0x0c,
-            3,  # write float32 3x
+            6,  # write float32 6x
             MOTEUS_REG_POS_POSITION,
             math.nan,
             velocity,
             ff_torque,
-        ))
-        buf.write(struct.pack(
-            "<bbbff",
-            0x0c,
-            2,  # write float32 2
-            MOTEUS_REG_POS_KP,
-            kp_scale,
-            kd_scale
-        ))
-        buf.write(struct.pack(
-            "<bbbf",
-            0x0c,
-            1,  # write float32 6x
-            MOTEUS_REG_MAX_TORQUE,
+            0.,
+            kd_scale,
             max_torque,
         ))
-        self.send_can_frame(buf.getvalue(), reply=False)
+        if(get_data):
+            buf.write(struct.pack(
+                "<bbb",
+                0x1c,  # read float32 (variable number)
+                4,  # 4 registers
+                0x00  # starting at 0
+            ))
+            buf.write(struct.pack(
+                "<bb",
+                0x13,  # read int8 3x
+                MOTEUS_REG_V))
+
+        self.send_can_frame(buf.getvalue(), reply=reply, print_data=print_data)
+
+    def command_torque(self, torque=0., get_data=False, print_data=False):
+        buf = io.BytesIO()
+        buf.write(struct.pack(
+            "<bbb",
+            0x01,  # write int8 1x
+            MOTEUS_REG_MODE,
+            MoteusMode.POSITION))
+        buf.write(struct.pack(
+            "<bbbffffff",
+            0x0c,
+            6,  # write float32 6x
+            MOTEUS_REG_POS_POSITION,
+            math.nan,
+            math.nan,
+            torque,
+            0.,
+            0.,
+            4.,
+        ))
+        if(get_data):
+            buf.write(struct.pack(
+                "<bbb",
+                0x1c,  # read float32 (variable number)
+                4,  # 4 registers
+                0x00  # starting at 0
+            ))
+            buf.write(struct.pack(
+                "<bb",
+                0x13,  # read int8 3x
+                MOTEUS_REG_V))
+
+        self.send_can_frame(buf.getvalue(), reply=get_data, print_data=print_data)
+
+    def get_data(self, print_data=False):
+        buf = io.BytesIO()
+        buf.write(struct.pack(
+            "<bbb",
+            0x1c,  # read float32 (variable number)
+            4,  # 4 registers
+            0x00  # starting at 0
+        ))
+        buf.write(struct.pack(
+            "<bb",
+            0x13,  # read int8 3x
+            MOTEUS_REG_V))
+
+        return self.send_can_frame(buf.getvalue(), reply=True, print_data=print_data)
+
+
 
 
 def main():
     controller_1 = Controller(1)
     while True:
-        phase = time.time() % (2. * math.pi);
-        angle_deg = 60.0 / 360 * math.sin(phase)
-        velocity_dps = 60.0 / 360 * math.cos(phase)
+        phase = (time.time()*8) % (2. * math.pi);
+        angle_deg = 200.0 / 360 * math.sin(phase)
+        velocity_dps = 200/ 360 * math.cos(phase)
+        torque_Nm=0.1*math.cos(phase)
 
-        controller_1.command_position(position=angle_deg, velocity=velocity_dps, max_torque=0.5)
+        #controller_1.command_position(position=angle_deg, velocity=velocity_dps, max_torque=0.3, get_data=True, print_data=False)
+        response_data=controller_1.get_data()
+        devider = 45
+        pos_set=(response_data[MOTEUS_REG_POSITION]*360-((response_data[MOTEUS_REG_POSITION] * 360)%(360/devider)-(360/devider/2)))
+        print(pos_set)
+        print(response_data[MOTEUS_REG_POSITION]*360)
+        controller_1.command_position(position=pos_set/360,  max_torque=0.6, kd_scale=0.1, kp_scale=1)
 
         #controller_1.command_velocity(velocity=velocity_dps, max_torque=0.5)
 
-        # Read (and discard) the adapters response.
-        # ok_response = readline(controller_1.serial)
-        # if not ok_response.startswith(b"OK"):
-        #     raise RuntimeError("fdcanusb responded with: " +
-        #                        ok_response.decode('latin1'))
-        # # Read the devices response.
-        # device = readline(controller_1.serial)
-        #
-        # if not device.startswith(b"rcv"):
-        #     raise RuntimeError("unexpected response")
-        #
-        # fields = device.split(b" ")
-        # response = dehexify(fields[2])
-        # response_data = parse_register_reply(response)
-        # print("Mode: {: 2d}  Pos: {: 6.2f}deg  Vel: {: 6.2f}dps  "
-        #       "Torque: {: 6.2f}Nm  Temp: {: 3d}C  Voltage: {: 3.1f}V    ".format(
-        #     int(response_data[MOTEUS_REG_MODE]),
-        #     response_data[MOTEUS_REG_POSITION] * 360.0,
-        #     response_data[MOTEUS_REG_VELOCITY] * 360.0,
-        #     response_data[MOTEUS_REG_TORQUE],
-        #     response_data[MOTEUS_REG_TEMP_C],
-        #     response_data[MOTEUS_REG_V] * 0.5),
-        #     end='\r')
+        #controller_1.command_torque(torque=torque_Nm)
+
 
 
 if __name__ == '__main__':
