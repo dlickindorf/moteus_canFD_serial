@@ -9,23 +9,23 @@ class MoteusReg():
     # These constants can be found in:
     # https://github.com/mjbots/moteus/blob/master/docs/reference.md under
     # "register command set".
-    MP_INT8 = 0
-    MP_INT16 = 1
-    MP_INT32 = 2
-    MP_F32 = 3
+    INT8 = 0
+    INT16 = 1
+    INT32 = 2
+    F32 = 3
 
-    MP_WRITE_BASE = 0x00
-    MP_READ_BASE = 0x10
-    MP_REPLY_BASE = 0x20
-    MP_WRITE_ERROR = 0x30
-    MP_READ_ERROR = 0x31
-    MP_NOP = 0x50
+    WRITE_BASE = 0x00
+    READ_BASE = 0x10
+    REPLY_BASE = 0x20
+    WRITE_ERROR = 0x30
+    READ_ERROR = 0x31
+    NOP = 0x50
 
     _TYPE_STRUCTS = {
-        MP_INT8: struct.Struct('<b'),
-        MP_INT16: struct.Struct('<h'),
-        MP_INT32: struct.Struct('<i'),
-        MP_F32: struct.Struct('<f'),
+        INT8: struct.Struct('<b'),
+        INT16: struct.Struct('<h'),
+        INT32: struct.Struct('<i'),
+        F32: struct.Struct('<f'),
     }
 
     MOTEUS_REG_MODE = 0x000
@@ -76,16 +76,16 @@ class Controller:
         # stop command in order to make the device move again.
         self.command_stop()
 
-    def hexify(self, data):
+    def __hexify(data):
         return ''.join(['{:02x}'.format(x) for x in data])
 
-    def dehexify(self, data):
+    def __dehexify(self, data):
         result = b''
         for i in range(0, len(data), 2):
             result += bytes([int(data[i:i + 2], 16)])
         return result
 
-    def readline(self, stream):
+    def __readline(self, stream):
         result = bytearray()
         while True:
             char = stream.read(1)
@@ -95,7 +95,7 @@ class Controller:
             else:
                 result += char
 
-    def read_varuint(self, stream):
+    def __read_varuint(self, stream):
         result = 0
         shift = 0
 
@@ -112,37 +112,37 @@ class Controller:
 
         assert False
 
-    def read_type(self, stream, field_type):
+    def __read_type(self, stream, field_type):
         s = MoteusReg._TYPE_STRUCTS[field_type]
         data = stream.read(s.size)
         return s.unpack(data)[0]
 
-    def parse_register_reply(self, data):
+    def __parse_register_reply(self, data):
         stream = io.BytesIO(data)
         result = {}
 
         while True:
-            opcode = self.read_varuint(stream)
+            opcode = self.__read_varuint(stream)
             if opcode is None:
                 break
             opcode_base = opcode & ~0x0f
-            if opcode_base == MoteusReg.MP_REPLY_BASE:
+            if opcode_base == MoteusReg.REPLY_BASE:
                 field_type = (opcode & 0x0c) >> 2
                 size = opcode & 0x03
                 if size == 0:
-                    size = self.read_varuint(stream)
-                start_reg = self.read_varuint(stream)
+                    size = self.__read_varuint(stream)
+                start_reg = self.__read_varuint(stream)
                 for i in range(size):
-                    result[start_reg + i] = self.read_type(stream, field_type)
-            elif opcode_base == MoteusReg.MP_WRITE_ERROR:
-                reg = self.read_varuint(stream)
-                err = self.read_varuint(stream)
+                    result[start_reg + i] = self.__read_type(stream, field_type)
+            elif opcode_base == MoteusReg.WRITE_ERROR:
+                reg = self.__read_varuint(stream)
+                err = self.__read_varuint(stream)
                 result[reg] = 'werr {}'.format(err)
-            elif opcode_base == MoteusReg.MP_READ_ERROR:
-                reg = self.read_varuint(stream)
-                err = self.read_varuint(stream)
+            elif opcode_base == MoteusReg.READ_ERROR:
+                reg = self.__read_varuint(stream)
+                err = self.__read_varuint(stream)
                 result[reg] = 'rerr {}'.format(err)
-            elif opcode_base == MoteusReg.MP_NOP:
+            elif opcode_base == MoteusReg.NOP:
                 pass
             else:
                 # Unknown opcode.  Just bail.
@@ -150,30 +150,31 @@ class Controller:
 
         return result
 
-    def send_can_frame(self, frame, reply, discard_adapter_response=True, print_data=False):
-        self.serial.write("can send {:02x}{:02x} {}\n".format(
-            0x80 if reply else 0x00,
-            self.target, self.hexify(frame)).encode('latin1'))
+    def __send_can_frame(self, frame, reply, discard_adapter_response=True, print_data=False):
 
-        if(discard_adapter_response):
+        if reply: reply_indicator = 0x80
+        else: reply_indicator = 0x00
+        self.serial.write("can send {:02x}{:02x} {}\n" .format(reply_indicator, self.target, self.__hexify(frame)).encode('latin1'))
+
+        if discard_adapter_response:
             # Read (and discard) the adapters response.
-            ok_response = self.readline(self.serial)
+            ok_response = self.__readline(self.serial)
             if not ok_response.startswith(b"OK"):
                 raise RuntimeError("fdcanusb responded with: " +
                                    ok_response.decode('latin1'))
 
-            if(reply):
+            if reply:
                 # Read the devices response.
-                device = self.readline(self.serial)
+                device = self.__readline(self.serial)
 
                 # if not device.startswith(b"rcv"):
                 #     raise RuntimeError("unexpected response")
 
                 fields = device.split(b" ")
-                response = self.dehexify(fields[2])
-                response_data = self.parse_register_reply(response)
+                response = self.__dehexify(fields[2])
+                response_data = self.__parse_register_reply(response)
 
-                if(print_data):
+                if print_data:
                     print("Mode: {: 2d}  Pos: {: 6.2f}deg  Vel: {: 6.2f}dps  "
                           "Torque: {: 6.2f}Nm  Temp: {: 3d}C  Voltage: {: 3.1f}V    ".format(
                             int(response_data[MoteusReg.MOTEUS_REG_MODE]),
@@ -192,11 +193,11 @@ class Controller:
             MoteusReg.MOTEUS_REG_MODE,
             MoteusMode.STOPPED))
 
-        self.send_can_frame(buf.getvalue(), reply=False)
+        self.__send_can_frame(buf.getvalue(), reply=False)
 
 
-    def command_position(self, position, velocity=0., max_torque=0.5, ff_torque=0., kp_scale=1., kd_scale=1.,
-                         get_data=False, print_data=False):
+    def set_position(self, position, velocity=0., max_torque=0.5, ff_torque=0., kp_scale=1., kd_scale=1.,
+                     get_data=False, print_data=False):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
@@ -215,7 +216,7 @@ class Controller:
             kd_scale,
             max_torque,
         ))
-        if(get_data):
+        if get_data:
             buf.write(struct.pack(
                 "<bbb",
                 0x1c,  # read float32 (variable number)
@@ -226,12 +227,12 @@ class Controller:
                 "<bb",
                 0x13,  # read int8 3x
                 MoteusReg.MOTEUS_REG_V))
-            return self.send_can_frame(buf.getvalue(), reply=True, print_data=print_data)
+            return self.__send_can_frame(buf.getvalue(), reply=True, print_data=print_data)
         else:
-            self.send_can_frame(buf.getvalue(), reply=False, print_data=print_data)
+            self.__send_can_frame(buf.getvalue(), reply=False, print_data=print_data)
 
 
-    def command_velocity(self, velocity=0., max_torque=0.5, ff_torque=0., kd_scale=1., get_data=False, print_data=False):
+    def set_velocity(self, velocity=0., max_torque=0.5, ff_torque=0., kd_scale=1., get_data=False, print_data=False):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
@@ -250,7 +251,7 @@ class Controller:
             kd_scale,
             max_torque,
         ))
-        if(get_data):
+        if get_data:
             buf.write(struct.pack(
                 "<bbb",
                 0x1c,  # read float32 (variable number)
@@ -262,9 +263,9 @@ class Controller:
                 0x13,  # read int8 3x
                 MoteusReg.MOTEUS_REG_V))
 
-        self.send_can_frame(buf.getvalue(), reply=reply, print_data=print_data)
+        self.__send_can_frame(buf.getvalue(), reply=reply, print_data=print_data)
 
-    def command_torque(self, torque=0., get_data=False, print_data=False):
+    def set_torque(self, torque=0., get_data=False, print_data=False):
         buf = io.BytesIO()
         buf.write(struct.pack(
             "<bbb",
@@ -283,7 +284,7 @@ class Controller:
             0.,
             4.,
         ))
-        if(get_data):
+        if get_data:
             buf.write(struct.pack(
                 "<bbb",
                 0x1c,  # read float32 (variable number)
@@ -295,7 +296,7 @@ class Controller:
                 0x13,  # read int8 3x
                 MoteusReg.MOTEUS_REG_V))
 
-        self.send_can_frame(buf.getvalue(), reply=get_data, print_data=print_data)
+        self.__send_can_frame(buf.getvalue(), reply=get_data, print_data=print_data)
 
     def get_data(self, print_data=False):
         buf = io.BytesIO()
@@ -310,5 +311,5 @@ class Controller:
             0x13,  # read int8 3x
             MoteusReg.MOTEUS_REG_V))
 
-        return self.send_can_frame(buf.getvalue(), reply=True, print_data=print_data)
+        return self.__send_can_frame(buf.getvalue(), reply=True, print_data=print_data)
 
