@@ -76,7 +76,7 @@ class Controller:
         # stop command in order to make the device move again.
         self.command_stop()
 
-    def __hexify(data):
+    def __hexify(self, data):
         return ''.join(['{:02x}'.format(x) for x in data])
 
     def __dehexify(self, data):
