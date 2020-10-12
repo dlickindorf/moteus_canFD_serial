@@ -7,7 +7,7 @@ def main():
     controller_1 = Controller(controller_ID=1)
     controller_2 = Controller(controller_ID=2)
     freq=300
-    multiplyer = 1
+    multiplyer = 0.1
     while True:
 
 

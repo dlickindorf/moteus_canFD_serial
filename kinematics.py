@@ -54,7 +54,7 @@ class Kinematics:
 
     def if_ik_possible(self, x, z):
 
-
+        if x == 0: x = 0.0000001
         try:
             l = math.sqrt(x ** 2 + z ** 2)
             delta = math.acos((self.f ** 2 + l ** 2 - self.t ** 2) / (2 * self.f * l))
@@ -75,11 +75,14 @@ class Kinematics:
 
     def ik(self, x, z):
 
+        if x == 0: x = 0.0000001
         l = math.sqrt(x**2+z**2)
         delta = math.acos((self.f ** 2 + l ** 2 - self.t ** 2) / (2 * self.f * l))
         gamma = math.atan(z / x)
+
         if gamma < 0:
             gamma = self.deg_to_rad(180) + gamma
+
         hip_rad = delta + gamma
         knee_rad = math.atan((z-self.f*math.sin(hip_rad))/(x-self.f*math.cos(hip_rad)))
         if knee_rad < 0:

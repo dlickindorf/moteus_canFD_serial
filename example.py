@@ -2,28 +2,64 @@ from moteus_fdcan_adapter import Controller
 from moteus_fdcan_adapter import MoteusReg
 import time
 import math
+from kinematics import Kinematics
+
 
 def main():
-    controller_1 = Controller(controller_ID = 1)
+    controller_knee = Controller(controller_ID = 1)
+    controller_hip = Controller(controller_ID = 2)
+    response_data_c1 = controller_knee.get_data()
+    robot_knee_rot = response_data_c1[MoteusReg.MOTEUS_REG_POSITION]
+    response_data_c2 = controller_hip.get_data()
+    robot_hip_rot = response_data_c2[MoteusReg.MOTEUS_REG_POSITION]
+    kinematics = Kinematics(robot_knee_rot, robot_hip_rot)
+
+    freq=300
+
     while True:
-        phase = (time.time()*8) % (2. * math.pi);
-        angle_deg = 200.0 / 360 * math.sin(phase)
-        velocity_dps = 200/ 360 * math.cos(phase)
-        torque_Nm=0.1*math.cos(phase)
+        freq_measure_time = time.time()
+        phase = (time.time() * 5) % (2*math.pi)
 
-        #controller_1.command_position(position=angle_deg, velocity=velocity_dps, max_torque=0.3, get_data=True, print_data=False)
+        x = -15
+        z = 120
 
-        response_data=controller_1.get_data()
-        devider = 360
-        pos_deg = response_data[MoteusReg.MOTEUS_REG_POSITION]*360
-        pos_set=(pos_deg-((pos_deg)%(360/devider)-(360/devider/2)))
-        print(pos_set)
-        print(response_data[MoteusReg.MOTEUS_REG_POSITION]*360)
-        controller_1.command_position(position=pos_set/360,  max_torque=0.6, kd_scale=0.1, kp_scale=4)
+        if kinematics.if_ik_possible(x, z):
+            robot_hip_rot_calculated, robot_knee_rot_calculated = kinematics.ik(x, z)
 
-        #controller_1.command_velocity(velocity=velocity_dps, max_torque=0.5)
+            response_data_c1 = controller_knee.get_data()
+            robot_knee_rot_measured = response_data_c1[MoteusReg.MOTEUS_REG_POSITION]
+            response_data_c2 = controller_hip.get_data()
+            robot_hip_rot_measured = response_data_c2[MoteusReg.MOTEUS_REG_POSITION]
 
-        #controller_1.command_torque(torque=torque_Nm)
+            print(robot_hip_rot_calculated, robot_hip_rot_measured, robot_knee_rot_calculated, robot_hip_rot_measured)
+
+            controller_hip.set_position(position=robot_hip_rot_calculated, max_torque=2, kd_scale=0.8, kp_scale=1.2)
+            controller_knee.set_position(position=robot_knee_rot_calculated, max_torque=2, kd_scale=0.8, kp_scale=1.2)
+
+        # response_data_c1 = controller_knee.get_data()
+        # robot_knee_rot_org = response_data_c1[MoteusReg.MOTEUS_REG_POSITION]
+        # knee_deg_org = kinematics.rad_to_deg(kinematics.robot_to_rad_for_knee(robot_knee_rot_org))
+        #
+        # response_data_c2 = controller_hip.get_data()
+        # robot_hip_rot_org= response_data_c2[MoteusReg.MOTEUS_REG_POSITION]
+        # hip_deg_org = kinematics.rad_to_deg(kinematics.robot_to_rad_for_hip(robot_hip_rot_org))
+        #
+        # x, z = kinematics.fk(robot_hip_rot_org, robot_knee_rot_org)
+        # print(kinematics.if_ik_possible(x, z))
+        # robot_hip_rot_processed, robot_knee_rot_processed = kinematics.ik(x, z)
+        #
+        # knee_deg_processed = kinematics.rad_to_deg(kinematics.robot_to_rad_for_knee(robot_knee_rot_processed))
+        # hip_deg_processed = kinematics.rad_to_deg(kinematics.robot_to_rad_for_hip(robot_hip_rot_processed))
+        #
+        # print(f'knee: {knee_deg_org:.2f} / {knee_deg_processed:.2f}, hip: {hip_deg_org:.2f} / {hip_deg_processed:.2f}, X: {x:.2f}, Z: {z:.2f}')
+
+
+
+        sleep = (1/freq)-(time.time()-freq_measure_time)
+        if sleep < 0: sleep = 0
+        time.sleep(sleep)
+        #print(f'freq: {1 / (time.time() - freq_measure_time):.1f}')
+
 
 if __name__ == '__main__':
     main()
