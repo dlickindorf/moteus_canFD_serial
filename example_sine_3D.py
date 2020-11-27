@@ -1,0 +1,46 @@
+from moteus_fdcan_adapter import Controller
+from moteus_fdcan_adapter import MoteusReg
+import time
+import math
+from kinematics_3D import Kinematics
+
+
+def main():
+    controller_knee = Controller(controller_ID = 1)
+    controller_hip = Controller(controller_ID = 2)
+    controller_abad = Controller(controller_ID=3)
+
+    kinematics = Kinematics()
+
+    freq=200
+
+    while True:
+        freq_measure_time = time.time()
+        phase1 = (time.time()*20) % (2*math.pi)
+        phase2 = (time.time()*1.5) % (2 * math.pi)
+        radius = 80
+
+
+
+        x = radius * math.cos(phase1)*math.cos(phase2)
+        y = radius * math.cos(phase1)*math.sin(phase2)+58
+        z = 220 +radius * math.sin(phase1)
+
+
+        knee, hip, abad = kinematics.ik(x, y, z)
+
+
+        controller_knee.set_position(position=knee, max_torque=1, kd_scale=0.5, kp_scale=1)
+        controller_hip.set_position(position=hip, max_torque=1, kd_scale=0.5, kp_scale=1)
+        controller_abad.set_position(position=abad, max_torque=1, kd_scale=0.5, kp_scale=1)
+
+
+
+        sleep = (1/freq)-(time.time()-freq_measure_time)
+        if sleep < 0: sleep = 0
+        time.sleep(sleep)
+        #print(f'freq: {1 / (time.time() - freq_measure_time):.1f}')
+
+
+if __name__ == '__main__':
+    main()

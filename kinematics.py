@@ -3,7 +3,7 @@ import math
 class Kinematics:
 
     def __init__(self, current_position_knee, current_position_hip, Femur = 160, Tibia = 150, Radius = 35,
-                 Hip_Home_Angle_Deg = 37.2-60, Knee_Home_Angle_Deg = 25., reduction = 6., range = 135):
+                 Hip_Home_Angle_Deg = (-0.92)*60, Knee_Home_Angle_Deg = (0.413)*60, reduction = 6., range = 130):
         self.Hip_Home_Angle_in_Cad_Deg = 42.5
         self.Knee_Home_Angle_in_Cad_Deg = 110
         self.f=Femur
@@ -42,8 +42,7 @@ class Kinematics:
     def rad_to_robot_for_hip(self, rad_hip):
         return (self.rad_to_deg(rad_hip) - self.Hip_Offset) / 360 * self.reduction
 
-
-    def fk(self, robot_hip_rot, robot_knee_rot):
+    def fk(self, robot_knee_rot, robot_hip_rot):
         knee_rad = self.robot_to_rad_for_knee(robot_knee_rot)
         hip_rad = self.robot_to_rad_for_hip(robot_hip_rot)
 
