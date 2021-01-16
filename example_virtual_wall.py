@@ -29,26 +29,26 @@ def main():
         y = 0
         z = 0
 
-        data_knee = controller_knee.set_position(position=knee, velocity = velocity_knee/2, max_torque=1*tq, kd_scale=0.2*tq, kp_scale = 1.4*tq, get_data= True)
-        data_hip = controller_hip.set_position(position=hip, velocity = velocity_hip/2,  max_torque=1*tq, kd_scale=0.2*tq, kp_scale=1.4*tq, get_data= True)
-        data_abad = controller_abad.set_position(position=abad, velocity = velocity_abad/2,  max_torque=2*tq, kd_scale=0.2*tq, kp_scale=1.4*tq, get_data= True)
+        data_knee = controller_knee.set_position(position=knee, velocity = velocity_knee/2, max_torque=1.5*tq, kd_scale=0.2*tq, kp_scale = 1.4*tq, get_data= True)
+        data_hip = controller_hip.set_position(position=hip, velocity = velocity_hip/2,  max_torque=0.8*tq, kd_scale=0.2*tq, kp_scale=1.4*tq, get_data= True)
+        data_abad = controller_abad.set_position(position=abad, velocity = velocity_abad/2,  max_torque=0.8*tq, kd_scale=0.2*tq, kp_scale=1.4*tq, get_data= True)
         tq=0
 
 
 
         x, y, z = kinematics.fk(data_knee[MoteusReg.MOTEUS_REG_POSITION], data_hip[MoteusReg.MOTEUS_REG_POSITION], data_abad[MoteusReg.MOTEUS_REG_POSITION])
 
-        if z > 250:
-            z = -((z - 250))*1.5 + z
+        if z > 240:
+            z = -((z - 240))*1.5 + z
             tq = 1
         if z < 160:
             z = -((z - 160))*1.5 + z
             tq = 1
-        if y > 150:
-            y = -((y - 150))*1.5 + y
+        if y > 108:
+            y = -((y - 108))*1.5 + y
             tq = 1
-        if y < -5:
-            y = -((y + 5))*1.5 + y
+        if y < -8:
+            y = -((y + 8))*1.5 + y
             tq = 1
         if x > 80:
             x = -((x - 80))*1.5 + x

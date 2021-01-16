@@ -18,16 +18,17 @@ def main():
 
 
     freq=200
-    period =1.5
+    period =60/173
 
-    jump_duration = 0.15
-    idle_duration = 0.2 # 0.35
+    jump_duration = 0.1
+    idle_duration = 0.1# 0.35
 
-    jump_torque = 2
-    land_torque = 1.2
+    jump_torque = 2#2
+    land_torque = 1.5 #1.2
 
-    jump_stance_low = 110
-    jump_stance_high = 310
+
+    jump_stance_low = 220
+    jump_stance_high = 290
 
     retract_duration = period - jump_duration - idle_duration
     begin_time=time.time()
@@ -36,16 +37,35 @@ def main():
     x_rand_prev = 0
     y_rand_prev = 0
 
+    i=0
+
+    while i<100:
+        i=i+1
+        knee, hip, abad = kinematics.ik(0,58, 200)
+        controller_knee.set_position(position=knee, max_torque=jump_torque, kd_scale=0.8, kp_scale=0.7)
+        controller_hip.set_position(position=hip, max_torque=jump_torque, kd_scale=0.8, kp_scale=0.7)
+        controller_abad.set_position(position=abad, max_torque=jump_torque, kd_scale=0.8, kp_scale=0.7)
+        time.sleep(0.01)
+
+
     while True:
         while True:
-            y_rand =random.randrange(-12, 98)
-            x_rand =random.randrange(-60, 30)
+            y_rand = 58 #50*math.cos(time.time()/0.8) +48#random.randrange(58-30, 58+30)
+            x_rand = 0 #60*math.sin(time.time()/0.8) - 30 # random.randrange(-41, -40)
+            controller_knee.get_data(print_data=True)
+            controller_hip.get_data(print_data=True)
+            print(x_rand, y_rand)
+            print(" ")
+            break
+
+
+            '''
             if ((y_rand-y_rand_prev)**2+(x_rand-x_rand_prev)**2)**(1/2)>60:
                 print(f't: {time.time():.2f} x: {x_rand:.2f} x_prev {x_rand_prev:.2f} y: {x_rand:.2f} y_prev {x_rand_prev:.2f}')
-                break
+                break'''
 
         phase=0
-        print('NEW')
+        #print('NEW')
         while phase<(period-1/freq):
             #print(phase)
             freq_measure_time = time.time()
@@ -55,15 +75,15 @@ def main():
                 jump_phase = phase/jump_duration
                 x = x_rand_prev
                 y = y_rand_prev
-                z = (jump_stance_low+(30/150*(128-y))) + ((jump_stance_high-40/150*((y**2+x**2)**(1/2)))-(jump_stance_low+(30/150*(128-y))))*jump_phase
+                z =  (jump_stance_low+(30/150*(128-y))) + ((jump_stance_high-40/150*((y**2+x**2)**(1/2)))-(jump_stance_low+(30/150*(128-y))))*jump_phase
 
 
 
                 knee, hip, abad= kinematics.ik(x, y, z)
 
-                controller_knee.set_position(position=knee, max_torque=jump_torque, kd_scale=0.1, kp_scale=1)
-                controller_hip.set_position(position=hip, max_torque=jump_torque*0.9, kd_scale=0.1, kp_scale=1)
-                controller_abad.set_position(position=abad, max_torque=jump_torque*0.8, kd_scale=0.1, kp_scale=1)
+                controller_knee.set_position(position=knee, max_torque=jump_torque, kd_scale=0.01, kp_scale=1)
+                controller_hip.set_position(position=hip, max_torque=jump_torque, kd_scale=0.01, kp_scale=1)
+                controller_abad.set_position(position=abad, max_torque=jump_torque, kd_scale=0.01, kp_scale=1)
 
             if (period - retract_duration) > phase >= jump_duration:
                 idle_phase = (phase - jump_duration) / idle_duration  # normalize to 0-1
@@ -74,9 +94,9 @@ def main():
 
                 knee, hip, abad = kinematics.ik(x, y, z)
 
-                controller_knee.set_position(position=knee, max_torque=jump_torque, kd_scale=0.4, kp_scale=1)
-                controller_hip.set_position(position=hip, max_torque=jump_torque*0.9, kd_scale=0.4, kp_scale=1)
-                controller_abad.set_position(position=abad, max_torque=jump_torque*0.8,kd_scale=0.4, kp_scale=1)
+                controller_knee.set_position(position=knee, max_torque=jump_torque, kd_scale=0.1, kp_scale=1)
+                controller_hip.set_position(position=hip, max_torque=jump_torque, kd_scale=0.1, kp_scale=1)
+                controller_abad.set_position(position=abad, max_torque=jump_torque,kd_scale=0.5, kp_scale=1)
 
             if phase > (period-retract_duration):
 
@@ -90,6 +110,8 @@ def main():
                 controller_knee.set_position(position=knee, max_torque=land_torque, kd_scale=0.8, kp_scale=0.4)
                 controller_hip.set_position(position=hip, max_torque=land_torque, kd_scale=0.8, kp_scale=0.4)
                 controller_abad.set_position(position=abad, max_torque=land_torque, kd_scale=0.8, kp_scale=1)
+
+
 
 
             sleep = (1/freq)-(time.time()-freq_measure_time)

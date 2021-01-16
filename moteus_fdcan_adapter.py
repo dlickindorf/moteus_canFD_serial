@@ -262,8 +262,9 @@ class Controller:
                 "<bb",
                 0x13,  # read int8 3x
                 MoteusReg.MOTEUS_REG_V))
-
-        self.__send_can_frame(buf.getvalue(), reply=reply, print_data=print_data)
+            return self.__send_can_frame(buf.getvalue(), reply=True, print_data=print_data)
+        else:
+            self.__send_can_frame(buf.getvalue(), reply=False, print_data=print_data)
 
     def set_torque(self, torque=0., get_data=False, print_data=False):
         buf = io.BytesIO()

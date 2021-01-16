@@ -1,9 +1,14 @@
 import math
 
+homin_hip = 0.3649365234375
+homing_knee = 0.083289794921875
+homing_abad= -1.65106201171875
+
+
 class Kinematics:
 
     def __init__(self, current_position_knee, current_position_hip, Femur = 160, Tibia = 150, Radius = 35,
-                 Hip_Home_Angle_Deg = (-0.92)*60, Knee_Home_Angle_Deg = (0.413)*60, reduction = 6., range = 130):
+                 Hip_Home_Angle_Deg = homin_hip*60 - 75, Knee_Home_Angle_Deg = homing_knee * 60 + 11, reduction = 6., range = 130):
         self.Hip_Home_Angle_in_Cad_Deg = 42.5
         self.Knee_Home_Angle_in_Cad_Deg = 110
         self.f=Femur

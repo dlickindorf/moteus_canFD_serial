@@ -1,10 +1,14 @@
 import math
 
+homin_hip = 0.3688
+homing_knee = 0.478
+homing_abad= -1.6408
+
 class Kinematics:
 
     def __init__(self,Femur = 160, Tibia = 150, Radius = 35, Abad_offset_in_Z=20, Abad_offset_in_Y=58,
-                 Hip_Home_Angle_Deg = (-0.92)*60, Knee_Home_Angle_Deg = (0.413)*60,
-                 Abad_Home_Angle_Deg = 163, reduction = 6., range = 130):
+                 Hip_Home_Angle_Deg = homin_hip*60 - 78, Knee_Home_Angle_Deg = homing_knee * 60 + 11,
+                 Abad_Home_Angle_Deg = homing_abad*60+265, reduction = 6., range = 130):
 
         self.Hip_Home_Angle_in_Cad_Deg = 42.5
         self.Knee_Home_Angle_in_Cad_Deg = 110
@@ -129,8 +133,8 @@ class Kinematics:
                 (180 - self.Hip_Home_Angle_in_Cad_Deg - self.range / 2) < hip_deg < (180 - self.Hip_Home_Angle_in_Cad_Deg + self.range / 2) and \
                 (self.Abad_Home_Angle_in_Cad_Deg - self.range / 2) < abad_deg < (self.Abad_Home_Angle_in_Cad_Deg + self.range / 2) and \
                 (180 - self.Knee_Home_Angle_in_Cad_Deg - self.range / 2) < knee_deg < (180 - self.Knee_Home_Angle_in_Cad_Deg + self.range / 2):
-            print(f'knee: {knee_deg:.2f}, hip: {hip_deg:.2f}, abad: {abad_deg:.2f} ')
+            #print(f'knee: {knee_deg:.2f}, hip: {hip_deg:.2f}, abad: {abad_deg:.2f} ')
             return True
         else:
-            print(f'knee: {knee_deg:.2f}, hip: {hip_deg:.2f}, abad: {abad_deg:.2f} ')
+            #print(f'knee: {knee_deg:.2f}, hip: {hip_deg:.2f}, abad: {abad_deg:.2f} ')
             return False

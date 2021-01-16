@@ -18,10 +18,10 @@ def main():
 
     while True:
         freq_measure_time = time.time()
-        phase = (time.time() * 5) % (2*math.pi)
+        phase = (time.time() * 16) % (2*math.pi)
 
-        x = -15
-        z = 120
+        z = 190+50*math.sin(phase)
+        x = -40+155*math.cos(phase)
 
         if kinematics.if_ik_possible(x, z):
             robot_hip_rot_calculated, robot_knee_rot_calculated = kinematics.ik(x, z)
@@ -31,10 +31,14 @@ def main():
             response_data_c2 = controller_hip.get_data()
             robot_hip_rot_measured = response_data_c2[MoteusReg.MOTEUS_REG_POSITION]
 
-            print(robot_hip_rot_calculated, robot_hip_rot_measured, robot_knee_rot_calculated, robot_hip_rot_measured)
 
-            controller_hip.set_position(position=robot_hip_rot_calculated, max_torque=2, kd_scale=0.8, kp_scale=1.2)
-            controller_knee.set_position(position=robot_knee_rot_calculated, max_torque=2, kd_scale=0.8, kp_scale=1.2)
+
+
+            print(f'pos c1: {robot_hip_rot_measured*360/6:.2f} pos c2: {robot_knee_rot_measured*360/6:.2f}')
+
+
+            controller_hip.set_position(position=robot_hip_rot_calculated, max_torque=1, kd_scale=0.5, kp_scale=1)
+            controller_knee.set_position(position=robot_knee_rot_calculated, max_torque=1, kd_scale=0.5, kp_scale=1)
 
         # response_data_c1 = controller_knee.get_data()
         # robot_knee_rot_org = response_data_c1[MoteusReg.MOTEUS_REG_POSITION]

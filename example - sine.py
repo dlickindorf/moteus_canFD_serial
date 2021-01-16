@@ -14,7 +14,7 @@ def main():
         angle_deg = 100.0 / 360 * math.sin(phase)
         velocity_dps = 100.0/ 360 * math.cos(phase)
 
-        controller_1.set_position(position=angle_deg, max_torque=0.3, kd_scale=0.2, get_data=True, print_data=False)
+        controller_1.set_position(position=angle_deg, max_torque=0.2, kd_scale=0.2, get_data=True, print_data=False)
 
         # controller_1.set_velocity(velocity=velocity_dps, max_torque=0.5)
 

@@ -16,6 +16,7 @@ def main():
     robot_hip_rot = response_data_c2[MoteusReg.MOTEUS_REG_POSITION]
     kinematics = Kinematics(robot_knee_rot, robot_hip_rot)
 
+
     freq=300
     period =1
 
