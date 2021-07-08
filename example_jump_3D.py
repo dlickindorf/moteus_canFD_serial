@@ -18,17 +18,17 @@ def main():
 
 
     freq=200
-    period =60/173
+    period =60/70
 
     jump_duration = 0.1
     idle_duration = 0.1# 0.35
 
-    jump_torque = 2#2
-    land_torque = 1.5 #1.2
+    jump_torque = 2.8#2
+    land_torque = 1.6 #1.2
 
 
-    jump_stance_low = 220
-    jump_stance_high = 290
+    jump_stance_low = 160
+    jump_stance_high = 300
 
     retract_duration = period - jump_duration - idle_duration
     begin_time=time.time()

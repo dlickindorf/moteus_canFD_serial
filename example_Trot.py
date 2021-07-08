@@ -24,7 +24,7 @@ def main():
     kp_scale_ground =  0.6# P
     torque = 1    
     
-    period = 0.5
+    period = 1
     
     
     #time proportins
@@ -34,13 +34,13 @@ def main():
     descend = 10
 
     #geometry - [mm]
-    direction_deg = 30
+    direction_deg = -45
     stride = 0
 
     
     
     ground_z = 250
-    air_z = ground_z-65
+    air_z = ground_z-70
     y_zero = 58
 
 
@@ -51,7 +51,7 @@ def main():
 
     while True:
 
-        stride = math.sin(((time.time() * 0.5) % (2 * math.pi)))*50+50
+        stride = 130#math.sin(((time.time() * 0.5) % (2 * math.pi)))*50+50
         print(stride)
 
         if stride >= 30:
