@@ -6,7 +6,7 @@ import math
 
 
 def main():
-    ###############################################  SET-ABLE PARAMETERS   ############################################
+    ###############################################  SETUP PARAMETERS   ############################################
     rod_length = 500  # rod length from center of motor to the center of the bearing in meters
     max_torque = 4  # range of commanded torques will be from zero to this value
     step_count = 20  # how many measurements you want to do
@@ -36,7 +36,6 @@ def main():
     else: direction = 1
 
     c = Controller(controller_ID=1)
-    c.command_stop()
 
     for i in range(1,step_count+1):
         c.command_stop() #comand_stop cleares anny errors/faults in the controller
