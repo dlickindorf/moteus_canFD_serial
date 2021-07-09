@@ -1,11 +1,6 @@
 from moteus_fdcan_adapter import Controller
 from moteus_fdcan_adapter import MoteusReg
 import time
-import math
-from kinematics_3D import Kinematics
-
-
-
 
 def main():
     c = Controller(controller_ID = 1)

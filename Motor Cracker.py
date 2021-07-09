@@ -6,19 +6,18 @@ import math
 
 
 def main():
-    ###############################################  SETABLE PARAMETERS   #############################################
+    ###############################################  SET-ABLE PARAMETERS   ############################################
     rod_length = 500  # rod length from center of motor to the center of the bearing in meters
-    max_torque = 2  # range of commanded torques will be from zero to this value
-    step_count = 10  # how many measurements you want to do
-    ramp_up_time = 0.5  # no to create a hard hit torque will ramp up to the max value over this amount of time
+    max_torque = 4  # range of commanded torques will be from zero to this value
+    step_count = 20  # how many measurements you want to do
+    ramp_up_time = 0.2  # no to create a hard hit torque will ramp up to the max value over this amount of time
     hold_time = 1  # if no user input is provided motor will turn off after this time to prevent overheating
     safety_max_velocity = 1 #if rotational velocity gets higher than this the machine stops commanding torque
+    direction_flip = True
     ###################################################################################################################
 
     # don't know how to do it yet but we need functionality to redo a measurement
 
-    c = Controller(controller_ID = 1)
-    c.command_stop()
 
     print("Welcome to Motor Cracker")
     print("Please set all the settable parameters in code. You will be asked to perform a series of measurements. \n"
@@ -32,14 +31,19 @@ def main():
     # create multi-dim array by providing shape
     results = numpy.empty(shape=(step_count+1,2), dtype='object')
     results[0, 0] = 0
-    results[0, 1]=0
+    results[0, 1] = 0
+    if direction_flip: direction = -1
+    else: direction = 1
+
+    c = Controller(controller_ID=1)
+    c.command_stop()
 
     for i in range(1,step_count+1):
-        c.command_stop()
+        c.command_stop() #comand_stop cleares anny errors/faults in the controller
         input("Start looking at the scale and click enter")
         #wait for user to start the test
 
-        time.sleep(0.5)
+        time.sleep(0.5) #to give user time to switch attention
 
         torque_reached_in_this_cycle = (max_torque/step_count)*i #torque that will be commanded in this measurement step
 
@@ -47,8 +51,7 @@ def main():
         time_before_ramp_start = time.time()
         while time.time() <= time_before_ramp_start + ramp_up_time:
             commanded_torque = ((time.time()-time_before_ramp_start)/ramp_up_time)*torque_reached_in_this_cycle
-            measurement = c.set_position(position=0, max_torque=max_torque, ff_torque=-commanded_torque, kp_scale=0,
-                                         kd_scale=0, get_data=True, print_data=False)
+            measurement = c.set_torque(torque=direction*commanded_torque, get_data=True, print_data=False)
             if abs(measurement[MoteusReg.MOTEUS_REG_VELOCITY]) > safety_max_velocity:
                 c.command_stop() #this will disable the motor fi it reaches a velocity over safety_max_velocity
                 break
@@ -57,8 +60,7 @@ def main():
         time_before_measurement = time.time()
         while time.time() <= time_before_measurement + hold_time:
             commanded_torque = torque_reached_in_this_cycle
-            measurement = c.set_position(position=0, max_torque=max_torque, ff_torque=-commanded_torque, kp_scale=0,
-                                         kd_scale=0, get_data=True, print_data=False)
+            measurement = c.set_torque(torque=direction*commanded_torque, get_data=True, print_data=False)
             if abs(measurement[MoteusReg.MOTEUS_REG_VELOCITY]) > safety_max_velocity:
                 c.command_stop()  # this will disable the motor fi it reaches a velocity over safety_max_velocity
                 break

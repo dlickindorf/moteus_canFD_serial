@@ -233,71 +233,20 @@ class Controller:
 
 
     def set_velocity(self, velocity=0., max_torque=0.5, ff_torque=0., kd_scale=1., get_data=False, print_data=False):
-        buf = io.BytesIO()
-        buf.write(struct.pack(
-            "<bbb",
-            0x01,  # write int8 1x
-            MoteusReg.MOTEUS_REG_MODE,
-            MoteusMode.POSITION))
-        buf.write(struct.pack(
-            "<bbbffffff",
-            0x0c,
-            6,  # write float32 6x
-            MoteusReg.MOTEUS_REG_POS_POSITION,
-            math.nan,
-            velocity,
-            ff_torque,
-            0.,
-            kd_scale,
-            max_torque,
-        ))
         if get_data:
-            buf.write(struct.pack(
-                "<bbb",
-                0x1c,  # read float32 (variable number)
-                4,  # 4 registers
-                0x00  # starting at 0
-            ))
-            buf.write(struct.pack(
-                "<bb",
-                0x13,  # read int8 3x
-                MoteusReg.MOTEUS_REG_V))
-            return self.__send_can_frame(buf.getvalue(), reply=True, print_data=print_data)
+            return self.set_position(position = math.nan, velocity=velocity, max_torque=max_torque, ff_torque=ff_torque,
+                          kp_scale=0, kd_scale=kd_scale, get_data=True, print_data=print_data)
         else:
-            self.__send_can_frame(buf.getvalue(), reply=False, print_data=print_data)
+            self.set_position(position=math.nan, velocity=velocity, max_torque=max_torque, ff_torque=ff_torque,
+                              kp_scale=0, kd_scale=kd_scale, get_data=False, print_data=False)
 
     def set_torque(self, torque=0., get_data=False, print_data=False):
-        buf = io.BytesIO()
-        buf.write(struct.pack(
-            "<bbb",
-            0x01,  # write int8 1x
-            MoteusReg.MOTEUS_REG_MODE,
-            MoteusMode.POSITION))
-        buf.write(struct.pack(
-            "<bbbffffff",
-            0x0c,
-            6,  # write float32 6x
-            MoteusReg.MOTEUS_REG_POS_POSITION,
-            math.nan,
-            math.nan,
-            torque,
-            0.,
-            0.,
-            4.,
-        ))
         if get_data:
-            buf.write(struct.pack(
-                "<bbb",
-                0x1c,  # read float32 (variable number)
-                4,  # 4 registers
-                0x00  # starting at 0
-            ))
-            buf.write(struct.pack(
-                "<bb",
-                0x13,  # read int8 3x
-                MoteusReg.MOTEUS_REG_V))
-
-        self.__send_can_frame(buf.getvalue(), reply=get_data, print_data=print_data)
+            return self.set_position(position = math.nan, velocity=0, max_torque=abs(torque), ff_torque=torque,
+                          kp_scale=0, kd_scale=0, get_data=True, print_data=print_data)
+        else:
+            self.set_position(position=math.nan, velocity=0, max_torque=abs(torque), ff_torque=torque,
+                              kp_scale=0, kd_scale=0, get_data=False, print_data=False)
 
     def get_data(self, print_data=False):
         buf = io.BytesIO()
